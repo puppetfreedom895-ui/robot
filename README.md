@@ -1,4 +1,4 @@
-﻿# robot
+# robot
 
 一个住在服务器上的 QQ 数字生命：**有自己的一部手机、自己的记忆、自己的日程**，你在 QQ 上跟它说话。
 
@@ -54,6 +54,15 @@ copy config.example.toml config.toml     # Linux/macOS 用 cp
 python -m robot chat
 ```
 
+再确认「发消息它一定回」——假装收到一条私聊，不需要 QQ 也不需要密钥：
+
+```powershell
+python scripts/demo_chat.py
+# 你发给它：在干嘛
+# 它回你：在的，刚刷完手机，咋了
+# 它记下的事：['22:14 主人：在干嘛']
+```
+
 再让它常驻：把 `config.toml` 里的 `[life] enabled = true`、`owner = 你的QQ号` 打开，然后
 
 ```powershell
@@ -65,7 +74,7 @@ python -m robot live      # 常驻
 
 | 层 | 状态 | 说明 |
 | --- | --- | --- |
-| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，194 个测试 |
+| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，197 个测试 |
 | QQ 层 `robot/adapters/onebot` | ✅ 可用 | OneBot v11 客户端/反连，触发规则，分段回复 |
 | 对话记忆 `robot/core/memory` | ✅ 可用 | 短期 + 摘要 + 长期事实 |
 | 生命内核 `robot/life` | ✅ 基础版 | 状态、心跳、日记、目标、L3 护栏、DSH 执行器 |
@@ -336,7 +345,7 @@ NapCat 的 WebUI 在 `http://服务器:6099`，扫码登录后加一个 WebSocke
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-pytest              # 194 个测试，全部离线
+pytest              # 197 个测试，全部离线
 ruff check .
 ```
 

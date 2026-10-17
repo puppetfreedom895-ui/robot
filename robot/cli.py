@@ -7,6 +7,7 @@ import asyncio
 import os
 import shutil
 import socket
+import subprocess
 import sys
 from urllib.parse import urlparse
 
@@ -14,6 +15,7 @@ from robot import __version__
 from robot.app import RobotApp
 from robot.config import Settings, load_settings
 from robot.core.event import MessageEvent
+from robot.life.runner import parse_command
 from robot.llm.base import LLMError
 from robot.log import get_logger, setup_logging
 from robot.service import LifeService
@@ -213,6 +215,17 @@ async def _doctor(settings: Settings, online: bool) -> int:
     else:
         print("  · 手机：未设 PHONE_SERIAL，不会操作手机")
 
+    command = parse_command(settings.life.dsh_command)
+    if command:
+        ok, detail = _probe_command([command[0], "--version"])
+        passed &= _check(
+            ok,
+            "DSH 执行器",
+            detail if ok else f"{detail}；服务器上要装 npm 版（桌面版封装不能用）",
+        )
+    else:
+        print("  · DSH 执行器：没配 dsh_command，动作只会占位")
+
     if online:
         from robot.llm.base import ChatMessage
 
@@ -226,6 +239,34 @@ async def _doctor(settings: Settings, online: bool) -> int:
             await app_provider.close()
 
     return 0 if passed else 1
+
+
+def _probe_command(argv: list[str], timeout: float = 15.0) -> tuple[bool, str]:
+    """跑一次命令，确认它真的能用。
+
+    @param argv: 命令与参数。
+    @param timeout: 超时秒数。
+    @returns: (是否可用, 说明文字)。
+    """
+    binary = argv[0]
+    if shutil.which(binary) is None:
+        return False, f"PATH 里找不到 {binary}"
+    try:
+        completed = subprocess.run(
+            argv,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, f"跑不起来：{exc}"
+
+    if completed.returncode != 0:
+        raw = completed.stderr or completed.stdout
+        lines = raw.decode("utf-8", errors="replace").strip().splitlines()
+        detail = f"：{lines[-1][:80]}" if lines else ""
+        return False, f"退出码 {completed.returncode}{detail}"
+    return True, "可执行"
 
 
 def _tcp_check(host: str, port: int, timeout: float = 2.0) -> bool:

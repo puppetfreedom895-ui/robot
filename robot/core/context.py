@@ -23,12 +23,14 @@ class Context:
         bot: 当前平台适配器。
         runtime: 运行期依赖（配置、记忆、模型）。
         handled: 已有处理函数响应过时为 True，后续低优先级处理函数可据此退让。
+        failures: 本次处理中抛异常的处理函数个数，用于兜底判断。
     """
 
     event: MessageEvent
     bot: Bot
     runtime: Any
     handled: bool = False
+    failures: int = 0
     _locks: dict[str, Any] = field(default_factory=dict, repr=False)
 
     @property

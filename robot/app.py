@@ -11,7 +11,7 @@ from robot.adapters.onebot.client import OneBotAdapter
 from robot.config import Settings
 from robot.core.bus import Bus, Registry
 from robot.core.context import Context
-from robot.core.event import MessageEvent
+from robot.core.event import MessageEvent, Segment
 from robot.core.memory import MemoryManager
 from robot.core.persona import load_persona
 from robot.core.runtime import Runtime
@@ -26,6 +26,25 @@ logger = get_logger(__name__)
 
 IDENTITY_POLL_SECONDS = 1.0
 IDENTITY_TIMEOUT_SECONDS = 60.0
+
+# 处理链全崩时发这个，保证「发消息一定有回应」
+FALLBACK_REPLY = "我这会儿有点问题，等下再问我一次？"
+
+
+def _needs_fallback(context: Context, event: MessageEvent) -> bool:
+    """判断要不要发兜底回复。
+
+    条件：该回话、却因为处理函数报错而一个字都没发出去。
+
+    @param context: 处理上下文。
+    @param event: 收到的事件。
+    @returns: 需要兜底为 True。
+    """
+    if context.handled or context.failures == 0:
+        return False
+    if event.is_group:
+        return event.mentions_me()
+    return bool(context.settings.trigger.private)
 
 
 class RobotApp:
@@ -97,12 +116,27 @@ class RobotApp:
                 self.adapter.self_id = event.self_id
             context = Context(event=event, bot=self.adapter, runtime=self.runtime)
             await self.bus.dispatch(context)
+            if _needs_fallback(context, event):
+                await self._send_fallback(event)
 
         for observer in self._observers:
             try:
                 await observer(event)
             except Exception:  # 观察者出错不能影响回复
                 logger.exception("事件观察者执行失败")
+
+    async def _send_fallback(self, event: MessageEvent) -> None:
+        """处理链全崩时也必须给个回应，不能让人干等。
+
+        @param event: 收到的事件。
+        """
+        logger.warning("这次没回出正常内容，发兜底回复")
+        try:
+            await self.adapter.send_message(
+                event, [Segment(type="text", data={"text": FALLBACK_REPLY})]
+            )
+        except Exception:  # 连兜底都发不出去，只能记日志
+            logger.exception("兜底回复也发送失败")
 
     async def _discover_identity(self) -> None:
         """连上后取一次登录账号的昵称，用于人设里的自我指代。"""

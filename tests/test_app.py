@@ -116,3 +116,82 @@ async def test_non_owner_cannot_reset(tmp_path) -> None:
     await app._on_event(build_event(text="/reset"))
     assert "只有管理员" in bot.texts[0]
     app.db.close()
+
+
+# ---- 兜底回复：发消息一定要有回应 ----
+
+
+def _fallback_context(settings, *, handled: bool, failures: int, group: bool):
+    from robot.core.context import Context
+    from robot.core.event import Segment
+    from robot.core.runtime import Runtime
+
+    extra = (Segment(type="at", data={"qq": "999"}),) if group else ()
+    event = build_event(
+        text="在吗",
+        message_type="group" if group else "private",
+        group_id=1 if group else None,
+        extra=extra,
+    )
+    runtime = Runtime(settings=settings, memory=None, llm=None)  # type: ignore[arg-type]
+    return Context(
+        event=event, bot=FakeBot(), runtime=runtime, handled=handled, failures=failures
+    ), event
+
+
+def test_needs_fallback_only_when_broken_and_unanswered(settings) -> None:
+    from robot.app import _needs_fallback
+
+    ctx, event = _fallback_context(settings, handled=False, failures=1, group=False)
+    assert _needs_fallback(ctx, event) is True
+
+    answered, answered_event = _fallback_context(settings, handled=True, failures=1, group=False)
+    assert _needs_fallback(answered, answered_event) is False
+
+    healthy, healthy_event = _fallback_context(settings, handled=False, failures=0, group=False)
+    assert _needs_fallback(healthy, healthy_event) is False
+
+
+def test_needs_fallback_respects_group_mention(settings) -> None:
+    from robot.app import _needs_fallback
+    from robot.core.context import Context
+    from robot.core.event import Segment
+    from robot.core.runtime import Runtime
+
+    runtime = Runtime(settings=settings, memory=None, llm=None)  # type: ignore[arg-type]
+
+    mentioned = build_event(
+        text="在吗",
+        message_type="group",
+        group_id=1,
+        extra=(Segment(type="at", data={"qq": "999"}),),
+    )
+    assert (
+        _needs_fallback(
+            Context(event=mentioned, bot=FakeBot(), runtime=runtime, failures=1), mentioned
+        )
+        is True
+    )
+
+    quiet = build_event(text="今天吃啥", message_type="group", group_id=1)
+    assert (
+        _needs_fallback(Context(event=quiet, bot=FakeBot(), runtime=runtime, failures=1), quiet)
+        is False
+    )
+
+
+async def test_private_message_still_answers_when_handler_crashes(tmp_path) -> None:
+    from robot.core.bus import HandlerSpec
+
+    app, bot, _provider = make_app(tmp_path)
+
+    async def boom(ctx):
+        raise RuntimeError("插件炸了")
+
+    app.registry._handlers = [
+        spec for spec in app.registry._handlers if spec.name != "chat.reply"
+    ] + [HandlerSpec(name="chat.reply", priority=100, func=boom)]
+
+    await app._on_event(build_event(text="在吗"))
+    assert bot.texts == ["我这会儿有点问题，等下再问我一次？"]
+    app.db.close()

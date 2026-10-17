@@ -78,6 +78,7 @@ class Bus:
                     result = await result
             except Exception:  # 单个插件崩了不能拖垮整条消息链
                 logger.exception("处理函数 %s 执行失败", spec.name)
+                ctx.failures += 1
                 continue
             if result:
                 return True
