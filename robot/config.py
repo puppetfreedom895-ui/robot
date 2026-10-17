@@ -90,6 +90,7 @@ class LifeSettings(BaseModel):
     enabled: bool = False
     owner: int = 0
     heartbeat_minutes: float = Field(default=10.0, gt=0)
+    timezone: str = ""
     quiet_start: int = 1
     quiet_end: int = 7
     daily_budget_tokens: int = 0

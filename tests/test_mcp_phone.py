@@ -174,3 +174,23 @@ def test_stdio_frames_are_single_line_json(tmp_path) -> None:
     response = call(server, "screen")
     encoded = json.dumps(response, ensure_ascii=False)
     assert "\n" not in encoded
+
+
+def test_screenshots_are_pruned_to_keep_limit(tmp_path) -> None:
+    """截图会一直攒，必须只留最近的若干张。"""
+    device = FakeDevice([SCREEN_XML])
+    server = PhoneServer(device, data_dir=tmp_path, settle=0.0, shot_keep=2)
+
+    for _ in range(4):
+        call(server, "screenshot")
+
+    shots = list((tmp_path / "screens").glob("*.png"))
+    assert len(shots) == 2
+
+
+def test_screenshot_names_are_unique_within_a_second(tmp_path) -> None:
+    device = FakeDevice([SCREEN_XML])
+    server = PhoneServer(device, data_dir=tmp_path, settle=0.0, shot_keep=50)
+
+    headers = {call(server, "screenshot")["result"]["content"][0]["text"] for _ in range(3)}
+    assert len(headers) == 3

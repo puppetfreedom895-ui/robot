@@ -43,7 +43,9 @@ class LifeService:
         adapter: OneBotAdapter | None = None,
     ) -> None:
         self.settings = settings
-        self.store = LifeStore(settings.path_of(settings.life.database))
+        self.store = LifeStore(
+            settings.path_of(settings.life.database), timezone=settings.life.timezone
+        )
         self.presence = LifePresence(self.store, owner=settings.life.owner)
 
         self.app = RobotApp(
@@ -62,6 +64,7 @@ class LifeService:
             brain=self.brain,
             runner=self.runner,
             notifier=self.notifier,
+            timezone=settings.life.timezone,
             quiet_hours=(settings.life.quiet_start, settings.life.quiet_end),
             daily_budget_tokens=settings.life.daily_budget_tokens,
         )

@@ -12,11 +12,15 @@ import json
 import os
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from robot.log import get_logger
 from robot.phone import ui
 from robot.phone.device import Device, DeviceError
+
+logger = get_logger(__name__)
 
 SERVER_NAME = "phone"
 SERVER_VERSION = "0.1.0"
@@ -24,6 +28,9 @@ DEFAULT_PROTOCOL = "2025-06-18"
 
 # 动作后等界面稳定的默认时长（秒）
 SETTLE_SECONDS = 0.6
+
+# 截图保留张数，超出就删最旧的
+DEFAULT_SHOT_KEEP = 200
 
 # 变化太多时改给整屏，免得模型拿到一堆增量拼不出画面
 MAX_DIFF_LINES = 8
@@ -158,12 +165,14 @@ class PhoneServer:
         max_chars: int = ui.DEFAULT_MAX_CHARS,
         max_nodes: int = ui.DEFAULT_MAX_NODES,
         settle: float = SETTLE_SECONDS,
+        shot_keep: int = DEFAULT_SHOT_KEEP,
     ) -> None:
         self._device = device
         self._data_dir = data_dir
         self._max_chars = max_chars
         self._max_nodes = max_nodes
         self._settle = settle
+        self._shot_keep = max(shot_keep, 1)
         self._last_nodes: list[ui.UiNode] | None = None
         self._last_package = ""
         self._shot_dir = data_dir / "screens"
@@ -299,9 +308,28 @@ class PhoneServer:
 
     def _tool_screenshot(self, _args: dict[str, Any]) -> str:
         self._shot_dir.mkdir(parents=True, exist_ok=True)
-        stamp = time.strftime("%Y%m%d-%H%M%S")
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         path = self._device.screenshot(self._shot_dir / f"{stamp}.png")
-        return f"截图已存到 {path}（图片不进上下文，要看就说一声）"
+        removed = self._prune_shots()
+        note = f"，顺手清掉 {removed} 张旧的" if removed else ""
+        return f"截图已存到 {path}{note}（图片不进上下文，要看就说一声）"
+
+    def _prune_shots(self) -> int:
+        """只留最近的若干张截图，避免磁盘被慢慢吃满。
+
+        @returns: 删掉的文件数。
+        """
+        shots = sorted(
+            self._shot_dir.glob("*.png"), key=lambda item: item.stat().st_mtime, reverse=True
+        )
+        deleted = 0
+        for stale in shots[self._shot_keep :]:
+            try:
+                stale.unlink()
+                deleted += 1
+            except OSError:  # 删不掉不影响这次截图
+                logger.debug("清理旧截图失败：%s", stale)
+        return deleted
 
     def _tool_wait(self, args: dict[str, Any]) -> str:
         seconds = min(float(args.get("seconds") or 1.0), 10.0)

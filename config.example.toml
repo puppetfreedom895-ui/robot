@@ -55,6 +55,7 @@ owners = []                       # 管理员 QQ 号，可执行 /reset、/忘�
 [life]
 enabled = false                   # 打开后 `robot live` 会让它自己活着
 owner = 0                         # 主人 QQ 号，它主动说话发给你
+timezone = "Asia/Shanghai"        # 免打扰和日记按这个时区算；留空用系统时区
 heartbeat_minutes = 10            # 多久醒一次（10 分钟约 4.6 万 token/天）
 quiet_start = 1                   # 免打扰开始小时：这段直接睡，不调模型
 quiet_end = 7

@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from robot.life.clock import format_clock, resolve_zone, today_of
 from robot.life.state import LifeState
 
 _SCHEMA = """
@@ -56,11 +57,12 @@ CREATE TABLE IF NOT EXISTS ledger (
 class LifeStore:
     """同步 SQLite 的异步封装。"""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, timezone: str = "") -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.Lock()
+        self._zone = resolve_zone(timezone)
         with self._lock:
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.executescript(_SCHEMA)
@@ -150,7 +152,7 @@ class LifeStore:
                 (limit,),
             ).fetchall()
         return [
-            f"{time.strftime('%H:%M', time.localtime(row['created_at']))} {row['content']}"
+            f"{format_clock(row['created_at'], self._zone)} {row['content']}"
             for row in reversed(rows)
         ]
 
@@ -313,7 +315,7 @@ class LifeStore:
                 "SELECT text FROM goals WHERE status = 'open' ORDER BY id DESC LIMIT ?", (goals,)
             ).fetchall()
 
-            today = time.strftime("%Y-%m-%d")
+            today = today_of(self._zone)
             ledger_row = self._conn.execute(
                 "SELECT tokens FROM ledger WHERE day = ?", (today,)
             ).fetchone()
@@ -341,7 +343,7 @@ class LifeStore:
             },
             "events": [
                 {
-                    "at": time.strftime("%H:%M", time.localtime(row["created_at"])),
+                    "at": format_clock(row["created_at"], self._zone),
                     "kind": str(row["kind"]),
                     "content": str(row["content"]),
                 }

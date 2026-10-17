@@ -14,6 +14,7 @@ from typing import Protocol
 
 from robot.life import policy
 from robot.life.brain import Brain
+from robot.life.clock import resolve_zone, to_local
 from robot.life.prompt import build_wake_prompt
 from robot.life.runner import Runner
 from robot.life.state import LifeState
@@ -79,6 +80,7 @@ class LifeLoop:
         runner: Runner,
         notifier: Notifier | None = None,
         clock: Callable[[], float] = time.time,
+        timezone: str = "",
         quiet_hours: tuple[int, int] = (1, 7),
         min_energy: float = 20.0,
         daily_budget_tokens: int = 0,
@@ -88,6 +90,7 @@ class LifeLoop:
         self._runner = runner
         self._notifier = notifier
         self._clock = clock
+        self._zone = resolve_zone(timezone)
         self._quiet_hours = quiet_hours
         self._min_energy = min_energy
         self._budget = daily_budget_tokens
@@ -97,7 +100,7 @@ class LifeLoop:
 
         @returns: 本轮结果。
         """
-        now = datetime.fromtimestamp(self._clock())
+        now = to_local(self._clock(), self._zone)
         day = now.strftime("%Y-%m-%d")
         state = await self._store.load_state()
 

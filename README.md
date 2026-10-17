@@ -1,4 +1,4 @@
-# robot
+﻿# robot
 
 一个住在服务器上的 QQ 数字生命：**有自己的一部手机、自己的记忆、自己的日程**，你在 QQ 上跟它说话。
 
@@ -74,7 +74,7 @@ python -m robot live      # 常驻
 
 | 层 | 状态 | 说明 |
 | --- | --- | --- |
-| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，197 个测试 |
+| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，206 个测试 |
 | QQ 层 `robot/adapters/onebot` | ✅ 可用 | OneBot v11 客户端/反连，触发规则，分段回复 |
 | 对话记忆 `robot/core/memory` | ✅ 可用 | 短期 + 摘要 + 长期事实 |
 | 生命内核 `robot/life` | ✅ 基础版 | 状态、心跳、日记、目标、L3 护栏、DSH 执行器 |
@@ -197,6 +197,7 @@ python -m robot live
 | `enabled` | `false` | 不开它 `live` 会直接拒绝启动 |
 | `owner` | `0` | 你的 QQ 号，它主动说话发到这里 |
 | `heartbeat_minutes` | `10` | 醒的间隔；10 分钟约 4.6 万 token/天 |
+| `timezone` | 空 | 免打扰和日记按这个时区算；云服务器多是 UTC，国内建议写 `Asia/Shanghai` |
 | `quiet_start` / `quiet_end` | `1` / `7` | 免打扰时段，**这段不调模型，零成本** |
 | `daily_budget_tokens` | `0` | 每天上限，超了它只发呆不动手 |
 | `brain` | `offline` | `offline` 规则版不花钱；`model` 用真模型做决定 |
@@ -345,7 +346,7 @@ NapCat 的 WebUI 在 `http://服务器:6099`，扫码登录后加一个 WebSocke
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-pytest              # 197 个测试，全部离线
+pytest              # 206 个测试，全部离线
 ruff check .
 ```
 
