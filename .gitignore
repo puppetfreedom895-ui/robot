@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.env
+data/
+logs/
+config.toml
+persona.md
+*.db
+*.sqlite3
+dist/
+build/
+*.egg-info/
+
+pip-*/

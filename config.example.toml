@@ -1,0 +1,52 @@
+# 机器人配置。复制本文件为 config.toml 后修改；密钥建议用环境变量注入。
+
+[llm]
+# 任何 OpenAI 兼容接口都可以，默认 DeepSeek
+base_url = "https://api.deepseek.com/v1"
+api_key = ""
+model = "deepseek-chat"
+temperature = 0.9
+max_tokens = 512
+timeout = 60.0
+max_retries = 2
+
+[onebot]
+# client：本程序连 NapCat（NapCat 里配「WebSocket服务器」，端口 3001）
+# server：本程序监听，NapCat 用「WebSocket客户端」反连
+mode = "client"
+url = "ws://127.0.0.1:3001"
+host = "0.0.0.0"
+port = 8080
+path = "/onebot"
+token = ""
+reconnect_min = 1.0
+reconnect_max = 30.0
+
+[trigger]
+private = true                    # 私聊是否回复
+group_at = true                   # 群里被 @ 就回复
+group_prefixes = ["机器人"]        # 群里以这些词开头也回复
+group_probability = 0.0           # 群聊随机接话概率，0 表示不随机（建议 0~0.05）
+cooldown = 1.0                    # 同一会话两次回复的最小间隔（秒）
+group_whitelist = []              # 只在这些群里工作，留空表示所有群
+group_blacklist = []              # 不进这些群
+
+[reply]
+split = true                      # 长回复拆成几条，像真人打字
+split_len = 80                    # 每条最大字数
+split_delay = 0.6                 # 两条之间的间隔（秒）
+max_len = 500                     # 单次回复总长度上限
+quote_reply = false               # 是否引用回复原消息
+
+[chat]
+persona_file = "persona.md"       # 人设文件，改这个换性格
+history_limit = 20                # 带多少条历史进上下文
+summary_enabled = true            # 超长会话自动压缩成摘要
+disclose_ai = true                # 被认真问到时是否承认自己是 AI
+
+[admin]
+owners = []                       # 管理员 QQ 号，可执行 /reset、/忘记
+
+database = "data/robot.db"
+plugins_dir = "plugins"
+log_level = "INFO"
