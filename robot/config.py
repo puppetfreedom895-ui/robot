@@ -84,6 +84,21 @@ class AdminSettings(BaseModel):
     owners: list[int] = Field(default_factory=list)
 
 
+class LifeSettings(BaseModel):
+    """生命内核：心跳频率、免打扰、额度与执行方式。"""
+
+    enabled: bool = False
+    owner: int = 0
+    heartbeat_minutes: float = Field(default=10.0, gt=0)
+    quiet_start: int = 1
+    quiet_end: int = 7
+    daily_budget_tokens: int = 0
+    brain: Literal["offline", "model"] = "offline"
+    dsh_command: str = ""
+    dsh_timeout: float = Field(default=180.0, gt=0)
+    database: str = "data/life.db"
+
+
 class Settings(BaseModel):
     """全部配置。base_dir 由加载时注入，用于解析相对路径。"""
 
@@ -93,6 +108,7 @@ class Settings(BaseModel):
     reply: ReplySettings = Field(default_factory=ReplySettings)
     chat: ChatSettings = Field(default_factory=ChatSettings)
     admin: AdminSettings = Field(default_factory=AdminSettings)
+    life: LifeSettings = Field(default_factory=LifeSettings)
     database: str = "data/robot.db"
     plugins_dir: str = "plugins"
     log_level: str = "INFO"

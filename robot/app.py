@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from robot.adapters.onebot.client import OneBotAdapter
@@ -30,7 +31,14 @@ IDENTITY_TIMEOUT_SECONDS = 60.0
 class RobotApp:
     """一个机器人实例。构造即完成装配，run() 开始收发消息。"""
 
-    def __init__(self, settings: Settings, provider: Provider | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        provider: Provider | None = None,
+        *,
+        adapter: OneBotAdapter | None = None,
+        observers: list[Callable[[MessageEvent], Awaitable[None]]] | None = None,
+    ) -> None:
         self.settings = settings
         self.db = Database(settings.path_of(settings.database))
         self.provider: Provider = provider or OpenAICompatProvider(settings.llm)
@@ -49,7 +57,9 @@ class RobotApp:
         self.runtime.state["plugins"] = self.plugins
         self.runtime.state["started_at"] = time.time()
         self.bus = Bus(self.registry)
-        self.adapter = OneBotAdapter(settings.onebot, self._on_event)
+        self.adapter = adapter or OneBotAdapter(settings.onebot, self._on_event)
+        self.adapter.bind(self._on_event)
+        self._observers = list(observers or [])
         self._locks: dict[str, asyncio.Lock] = {}
 
     async def run(self) -> None:
@@ -87,6 +97,12 @@ class RobotApp:
                 self.adapter.self_id = event.self_id
             context = Context(event=event, bot=self.adapter, runtime=self.runtime)
             await self.bus.dispatch(context)
+
+        for observer in self._observers:
+            try:
+                await observer(event)
+            except Exception:  # 观察者出错不能影响回复
+                logger.exception("事件观察者执行失败")
 
     async def _discover_identity(self) -> None:
         """连上后取一次登录账号的昵称，用于人设里的自我指代。"""

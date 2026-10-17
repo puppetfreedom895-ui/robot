@@ -98,3 +98,22 @@ async def test_gives_up_after_retries(monkeypatch) -> None:
     provider = make_provider(lambda request: httpx.Response(503, text="down"), max_retries=1)
     with pytest.raises(LLMError, match="503"):
         await provider.complete(MESSAGES)
+
+
+async def test_falls_back_when_proxy_env_is_broken(monkeypatch) -> None:
+    """有些机器的 NO_PROXY 带 [::1]，httpx 解析代理会直接抛错。"""
+    real_client = httpx.AsyncClient
+    attempts: list[dict] = []
+
+    def fake_client(*args, **kwargs):
+        attempts.append(kwargs)
+        if len(attempts) == 1:
+            raise httpx.InvalidURL("bad NO_PROXY")
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", fake_client)
+    provider = OpenAICompatProvider(LLMSettings(api_key="k"))
+
+    assert len(attempts) == 2
+    assert attempts[1]["trust_env"] is False
+    await provider.close()

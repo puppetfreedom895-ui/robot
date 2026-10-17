@@ -15,19 +15,12 @@ from typing import Protocol
 from robot.life import policy
 from robot.life.brain import Brain
 from robot.life.prompt import build_wake_prompt
+from robot.life.runner import Runner
 from robot.life.state import LifeState
 from robot.life.store import LifeStore
 
 # 心跳提示词大约这么多 token（估算，用于记账）
 PROMPT_OVERHEAD_TOKENS = 60
-
-
-class Runner(Protocol):
-    """把「想做的事」变成真的动作。接入 DSH 后由它接管手机。"""
-
-    async def run(self, intent: str) -> str:
-        """执行一个意图，返回一句叙述。"""
-        ...
 
 
 class Notifier(Protocol):

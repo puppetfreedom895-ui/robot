@@ -1,5 +1,10 @@
 # 机器人配置。复制本文件为 config.toml 后修改；密钥建议用环境变量注入。
 
+# 根级配置（TOML 要求写在所有 [节] 之前）
+database = "data/robot.db"        # 对话记忆
+plugins_dir = "plugins"           # 用户插件目录
+log_level = "INFO"
+
 [llm]
 # 任何 OpenAI 兼容接口都可以，默认 DeepSeek
 base_url = "https://api.deepseek.com/v1"
@@ -47,6 +52,14 @@ disclose_ai = true                # 被认真问到时是否承认自己是 AI
 [admin]
 owners = []                       # 管理员 QQ 号，可执行 /reset、/忘记
 
-database = "data/robot.db"
-plugins_dir = "plugins"
-log_level = "INFO"
+[life]
+enabled = false                   # 打开后 `robot live` 会让它自己活着
+owner = 0                         # 主人 QQ 号，它主动说话发给你
+heartbeat_minutes = 10            # 多久醒一次（10 分钟约 4.6 万 token/天）
+quiet_start = 1                   # 免打扰开始小时：这段直接睡，不调模型
+quiet_end = 7
+daily_budget_tokens = 0           # 每天 token 上限，0 表示不限
+brain = "offline"                 # offline=规则版（不花钱）；model=用真模型做决定
+dsh_command = ""                  # 如 "dsh --profile headless"；空表示只演示不碰手机
+dsh_timeout = 180                 # 单次执行 DSH 的超时秒数
+database = "data/life.db"

@@ -1,0 +1,28 @@
+# 冒烟测试配置：不连真实 NapCat，只验证常驻进程能起来。
+#   python -m robot live --config scripts/smoke.toml
+
+database = "../data/robot.db"
+plugins_dir = "../plugins"
+log_level = "DEBUG"
+
+[llm]
+api_key = "smoke"
+model = "deepseek-flash"
+
+[onebot]
+mode = "server"
+host = "127.0.0.1"
+port = 18080
+
+[trigger]
+group_prefixes = ["机器人"]
+
+[life]
+enabled = true
+owner = 10001
+heartbeat_minutes = 0.03
+quiet_start = 0
+quiet_end = 0
+brain = "offline"
+dsh_command = ""
+database = "../data/smoke-life.db"

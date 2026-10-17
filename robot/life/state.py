@@ -17,7 +17,7 @@ REST_BOREDOM = 5.0
 STATE_MAX = 100.0
 
 
-def _clamp(value: float, low: float = 0.0, high: float = STATE_MAX) -> float:
+def clamp(value: float, low: float = 0.0, high: float = STATE_MAX) -> float:
     """把数值夹到合法范围内。
 
     @param value: 原值。
@@ -47,8 +47,8 @@ class LifeState:
         """
         return replace(
             self,
-            energy=_clamp(self.energy - ACTION_ENERGY),
-            boredom=_clamp(self.boredom - ACTION_BOREDOM),
+            energy=clamp(self.energy - ACTION_ENERGY),
+            boredom=clamp(self.boredom - ACTION_BOREDOM),
             focus=(intent[:20] if intent else self.focus),
         )
 
@@ -60,8 +60,8 @@ class LifeState:
         """
         return replace(
             self,
-            energy=_clamp(self.energy + energy_gain),
-            boredom=_clamp(self.boredom + REST_BOREDOM),
+            energy=clamp(self.energy + energy_gain),
+            boredom=clamp(self.boredom + REST_BOREDOM),
         )
 
     def describe(self) -> str:

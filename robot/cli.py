@@ -14,6 +14,7 @@ from robot.config import Settings, load_settings
 from robot.core.event import MessageEvent
 from robot.llm.base import LLMError
 from robot.log import get_logger, setup_logging
+from robot.service import LifeService
 
 logger = get_logger(__name__)
 
@@ -27,6 +28,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     run = sub.add_parser("run", help="连接 QQ 并开始聊天")
     run.add_argument("--config", default=argparse.SUPPRESS)
+
+    live = sub.add_parser("live", help="常驻运行：QQ 聊天 + 自己心跳 + 操作手机")
+    live.add_argument("--config", default=argparse.SUPPRESS)
 
     chat = sub.add_parser("chat", help="在终端里和机器人对话，不连 QQ")
     chat.add_argument("--config", default=argparse.SUPPRESS)
@@ -51,6 +55,29 @@ async def _run(settings: Settings) -> None:
         await app.run()
     except KeyboardInterrupt:
         logger.info("已退出")
+
+
+async def _live(settings: Settings) -> int:
+    """常驻模式：聊天 + 心跳 + 手机操作。
+
+    @param settings: 已加载的配置。
+    @returns: 退出码。
+    """
+    if not settings.life.enabled:
+        print(
+            "config.toml 里的 [life] enabled 还是 false，先把它打开再跑 live。",
+            file=sys.stderr,
+        )
+        return 2
+    if not settings.life.owner:
+        print("提示：[life] owner 没填，它想主动说话时发不出去。", file=sys.stderr)
+
+    service = LifeService(settings)
+    try:
+        await service.run()
+    except KeyboardInterrupt:
+        logger.info("已退出")
+    return 0
 
 
 async def _chat(settings: Settings) -> None:
@@ -206,6 +233,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "chat":
         asyncio.run(_chat(settings))
         return 0
+    if args.command == "live":
+        return asyncio.run(_live(settings))
     if args.command == "run":
         asyncio.run(_run(settings))
         return 0

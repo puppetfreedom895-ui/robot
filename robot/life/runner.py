@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Protocol
 
 from robot.log import get_logger
 
@@ -21,6 +22,14 @@ ACTION_PROMPT = (
     "你现在是一个普通网友，正自己拿着手机。请去做这件事：{intent}\n"
     "用手机工具真的做完，然后只用一句话说你做了什么，不要解释过程。"
 )
+
+
+class Runner(Protocol):
+    """把「想做的事」变成真的动作。"""
+
+    async def run(self, intent: str) -> str:
+        """执行一个意图，返回一句叙述。"""
+        ...
 
 
 class DemoRunner:

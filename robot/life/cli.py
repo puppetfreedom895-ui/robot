@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import Any
 
 from robot.life.brain import Brain, LLMBrain, OfflineBrain
-from robot.life.loop import LifeLoop, Runner, TickResult
-from robot.life.runner import DemoRunner, DshRunner, parse_command
+from robot.life.loop import LifeLoop, TickResult
+from robot.life.runner import DemoRunner, DshRunner, Runner, parse_command
 from robot.life.store import LifeStore
 
 

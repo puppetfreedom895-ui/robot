@@ -1,4 +1,4 @@
-# robot
+﻿# robot
 
 一个住在服务器上的 QQ 数字生命：**有自己的一部手机、自己的记忆、自己的日程**，你在 QQ 上跟它说话。
 
@@ -34,11 +34,11 @@
 
 | 层 | 状态 | 说明 |
 | --- | --- | --- |
-| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，135 个测试 |
+| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，147 个测试 |
 | QQ 层 `robot/adapters/onebot` | ✅ 可用 | OneBot v11 客户端/反连，触发规则，分段回复 |
 | 对话记忆 `robot/core/memory` | ✅ 可用 | 短期 + 摘要 + 长期事实 |
 | 生命内核 `robot/life` | ✅ 基础版 | 状态、心跳、日记、目标、L3 护栏、DSH 执行器 |
-| QQ 出入口接线 | 🚧 下一步 | 把心跳和聊天接到同一个小号上 |
+| QQ 出入口接线 | ✅ 完成 | 主动私聊 + 对话联动状态 + `robot live` 常驻 |
 | 管理网页 | 🚧 未开始 | 只读看板 + 干预 |
 | 部署脚本 | 🚧 未开始 | systemd / docker / Tailscale |
 
@@ -141,6 +141,28 @@ python -m robot.life --ticks 12 --step 20 --start 20:00 --dsh "python scripts/fa
 
 实测每次心跳约 320 token，一天 144 次 ≈ 4.6 万 token。
 
+## 常驻运行
+
+```powershell
+python -m robot live
+```
+
+一个进程干三件事：收 QQ 消息并回话、每 N 分钟自己醒一次、决定做事时调 DSH 操作手机。
+
+配置在 `config.toml` 的 `[life]`：
+
+| 键 | 默认 | 说明 |
+| --- | --- | --- |
+| `enabled` | `false` | 不开它 `live` 会直接拒绝启动 |
+| `owner` | `0` | 你的 QQ 号，它主动说话发到这里 |
+| `heartbeat_minutes` | `10` | 醒的间隔；10 分钟约 4.6 万 token/天 |
+| `quiet_start` / `quiet_end` | `1` / `7` | 免打扰时段，**这段不调模型，零成本** |
+| `daily_budget_tokens` | `0` | 每天上限，超了它只发呆不动手 |
+| `brain` | `offline` | `offline` 规则版不花钱；`model` 用真模型做决定 |
+| `dsh_command` | 空 | 如 `dsh --profile headless`，空表示只演示不碰手机 |
+
+双向联动：它主动说的话走私聊发给你；你在 QQ 跟它聊天时，它的无聊度会下降、精力会掉一点——状态跟真实互动挂钩，不是自己空转。
+
 ## QQ 层
 
 OneBot v11，对接 [NapCat](https://github.com/NapNeko/NapCatQQ)。用专用小号，别用主号。
@@ -188,7 +210,7 @@ L3 不靠提示词约束——提示词在长对话里迟早被绕过——而�
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-pytest              # 135 个测试，全部离线
+pytest              # 147 个测试，全部离线
 ruff check .
 ```
 

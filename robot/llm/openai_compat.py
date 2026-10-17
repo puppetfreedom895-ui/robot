@@ -16,6 +16,24 @@ logger = get_logger(__name__)
 _RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
 
 
+def _default_client(settings: LLMSettings, headers: dict[str, str]) -> httpx.AsyncClient:
+    """建一个 HTTP 客户端，代理环境变量坏了也能起来。
+
+    有些机器的 NO_PROXY 里带 ``[::1]`` 这种写法，httpx 解析代理时会抛 InvalidURL，
+    整个进程直接起不来。这里降级成不走代理，直连。
+
+    @param settings: 模型配置，取超时。
+    @param headers: 默认请求头。
+    @returns: 可用的 httpx 客户端。
+    """
+    timeout = httpx.Timeout(settings.timeout)
+    try:
+        return httpx.AsyncClient(timeout=timeout, headers=headers)
+    except httpx.InvalidURL:
+        logger.warning("代理环境变量解析失败（常见于 NO_PROXY 里写了 [::1]），本次不走代理")
+        return httpx.AsyncClient(timeout=timeout, headers=headers, trust_env=False)
+
+
 class OpenAICompatProvider(Provider):
     """通过 /chat/completions 调用模型。
 
@@ -29,10 +47,7 @@ class OpenAICompatProvider(Provider):
     ) -> None:
         self._settings = settings
         self._owns_client = client is None
-        self._client = client or httpx.AsyncClient(
-            timeout=httpx.Timeout(settings.timeout),
-            headers=self._headers(),
-        )
+        self._client = client or _default_client(settings, self._headers())
 
     def _headers(self) -> dict[str, str]:
         return {

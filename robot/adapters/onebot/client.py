@@ -103,6 +103,15 @@ class OneBotAdapter:
         self._stop_event = asyncio.Event()
         self._stopping = False
 
+    def bind(self, handler: EventHandler) -> None:
+        """换掉事件处理函数。
+
+        适配器可能先于上层装配创建，等上层就绪后再绑定。
+
+        @param handler: 新的处理函数。
+        """
+        self._on_event = handler
+
     # ---- 生命周期 ----
 
     async def start(self) -> None:
