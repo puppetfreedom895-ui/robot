@@ -1,0 +1,20 @@
+[Unit]
+Description=robot — QQ 数字生命（QQ 对话 + 自主心跳 + 手机操作）
+Documentation=https://github.com/puppetfreedom895-ui/robot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/robot
+# .env 里放 ROBOT_API_KEY 之类，缺失也不影响启动
+EnvironmentFile=-/opt/robot/.env
+ExecStart=/opt/robot/.venv/bin/python -m robot live
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=20
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

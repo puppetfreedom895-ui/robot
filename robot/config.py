@@ -99,6 +99,16 @@ class LifeSettings(BaseModel):
     database: str = "data/life.db"
 
 
+class WebSettings(BaseModel):
+    """只读管理台。默认关闭、只绑本机；放公网必须配 token。"""
+
+    enabled: bool = False
+    host: str = "127.0.0.1"
+    port: int = Field(default=8787, ge=1, le=65535)
+    token: str = ""
+    screens_dir: str = "data/screens"
+
+
 class Settings(BaseModel):
     """全部配置。base_dir 由加载时注入，用于解析相对路径。"""
 
@@ -109,6 +119,7 @@ class Settings(BaseModel):
     chat: ChatSettings = Field(default_factory=ChatSettings)
     admin: AdminSettings = Field(default_factory=AdminSettings)
     life: LifeSettings = Field(default_factory=LifeSettings)
+    web: WebSettings = Field(default_factory=WebSettings)
     database: str = "data/robot.db"
     plugins_dir: str = "plugins"
     log_level: str = "INFO"

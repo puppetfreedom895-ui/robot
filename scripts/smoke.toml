@@ -26,3 +26,10 @@ quiet_end = 0
 brain = "offline"
 dsh_command = ""
 database = "../data/smoke-life.db"
+
+[web]
+enabled = true
+host = "127.0.0.1"
+port = 18787
+token = "smoke"
+screens_dir = "../data/screens"

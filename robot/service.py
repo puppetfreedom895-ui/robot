@@ -24,6 +24,7 @@ from robot.life.store import LifeStore
 from robot.llm.base import Provider
 from robot.llm.openai_compat import OpenAICompatProvider
 from robot.log import get_logger
+from robot.web.dashboard import Dashboard
 
 logger = get_logger(__name__)
 
@@ -64,6 +65,17 @@ class LifeService:
             quiet_hours=(settings.life.quiet_start, settings.life.quiet_end),
             daily_budget_tokens=settings.life.daily_budget_tokens,
         )
+        self.dashboard: Dashboard | None = (
+            Dashboard(
+                self.store,
+                host=settings.web.host,
+                port=settings.web.port,
+                token=settings.web.token,
+                screens_dir=settings.path_of(settings.web.screens_dir),
+            )
+            if settings.web.enabled
+            else None
+        )
 
     def _build_brain(self) -> Brain:
         """按配置选大脑。
@@ -98,6 +110,8 @@ class LifeService:
             self.settings.life.owner or "未配置",
         )
         heartbeat = asyncio.create_task(self._heartbeat(), name="life")
+        if self.dashboard is not None:
+            self.dashboard.start()
         try:
             await self.app.run()
         finally:
@@ -106,7 +120,9 @@ class LifeService:
             await self.close()
 
     async def close(self) -> None:
-        """释放心跳相关的资源。"""
+        """释放心跳与管理台的资源。"""
+        if self.dashboard is not None:
+            self.dashboard.stop()
         if self._brain_provider is not None:
             await self._brain_provider.close()
         self.store.close()

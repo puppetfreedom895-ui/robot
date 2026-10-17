@@ -10,6 +10,7 @@ import sqlite3
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 from robot.life.state import LifeState
 
@@ -282,3 +283,71 @@ class LifeStore:
         """关闭连接。"""
         with self._lock:
             self._conn.close()
+
+    # ---- 只读快照 ----
+
+    def snapshot(self, *, events: int = 30, days: int = 3, goals: int = 10) -> dict[str, Any]:
+        """同步取一份只读快照，供管理台等其它线程使用。
+
+        内部有锁，可以在非事件循环线程里直接调用。
+
+        @param events: 取最近多少条事件。
+        @param days: 取最近几天的日记。
+        @param goals: 取多少条未完成目标。
+        @returns: 状态、事件、日记、目标与今日用量的字典。
+        """
+        with self._lock:
+            state_row = self._conn.execute(
+                "SELECT name, energy, mood, boredom, focus, updated_at FROM state WHERE id = 1"
+            ).fetchone()
+
+            event_rows = self._conn.execute(
+                "SELECT kind, content, created_at FROM events ORDER BY id DESC LIMIT ?", (events,)
+            ).fetchall()
+
+            diary_rows = self._conn.execute(
+                "SELECT day, content FROM diary ORDER BY id DESC LIMIT ?", (max(days, 1) * 10,)
+            ).fetchall()
+
+            goal_rows = self._conn.execute(
+                "SELECT text FROM goals WHERE status = 'open' ORDER BY id DESC LIMIT ?", (goals,)
+            ).fetchall()
+
+            today = time.strftime("%Y-%m-%d")
+            ledger_row = self._conn.execute(
+                "SELECT tokens FROM ledger WHERE day = ?", (today,)
+            ).fetchone()
+
+        grouped: dict[str, list[str]] = {}
+        order: list[str] = []
+        for row in diary_rows:
+            day = str(row["day"])
+            if day not in grouped:
+                if len(order) >= days:
+                    continue
+                grouped[day] = []
+                order.append(day)
+            grouped[day].append(str(row["content"]))
+
+        return {
+            "generated_at": time.time(),
+            "state": {
+                "name": (state_row["name"] if state_row else "小七") or "小七",
+                "energy": float(state_row["energy"]) if state_row else 80.0,
+                "boredom": float(state_row["boredom"]) if state_row else 30.0,
+                "mood": (state_row["mood"] if state_row else "还行"),
+                "focus": (state_row["focus"] if state_row else ""),
+                "updated_at": float(state_row["updated_at"]) if state_row else 0.0,
+            },
+            "events": [
+                {
+                    "at": time.strftime("%H:%M", time.localtime(row["created_at"])),
+                    "kind": str(row["kind"]),
+                    "content": str(row["content"]),
+                }
+                for row in reversed(event_rows)
+            ],
+            "diary": [{"day": day, "lines": grouped[day]} for day in order],
+            "goals": [str(row["text"]) for row in reversed(goal_rows)],
+            "tokens_today": int(ledger_row["tokens"]) if ledger_row else 0,
+        }

@@ -1,0 +1,37 @@
+# 在 deploy/ 目录下运行：docker compose up -d
+#
+# 注意 config.toml 里要把连接地址改成容器名：
+#   [onebot]
+#   url = "ws://napcat:3001"
+#
+# 第一次启动后打开 http://服务器IP:6099 扫码登录 QQ 小号，
+# 再在 NapCat 的「网络配置」里加一个 WebSocket 服务器，端口 3001。
+
+services:
+  napcat:
+    image: mlikiowa/napcat-docker:latest
+    container_name: napcat
+    environment:
+      - NAPCAT_UID=1000
+      - NAPCAT_GID=1000
+    ports:
+      - "6099:6099" # WebUI，只用于第一次登录，用完建议关掉
+    volumes:
+      - ./data/napcat:/app/napcat/config
+    restart: unless-stopped
+
+  robot:
+    build: ..
+    container_name: robot
+    depends_on:
+      - napcat
+    env_file:
+      - ../.env
+    volumes:
+      - ../data:/app/data
+      - ../config.toml:/app/config.toml:ro
+      - ../persona.md:/app/persona.md:ro
+    ports:
+      # 管理台只绑本机；要从外网看就自己加反向代理和鉴权
+      - "127.0.0.1:8787:8787"
+    restart: unless-stopped

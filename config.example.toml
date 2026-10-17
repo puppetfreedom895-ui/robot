@@ -63,3 +63,10 @@ brain = "offline"                 # offline=规则版（不花钱）；model=用
 dsh_command = ""                  # 如 "dsh --profile headless"；空表示只演示不碰手机
 dsh_timeout = 180                 # 单次执行 DSH 的超时秒数
 database = "data/life.db"
+
+[web]
+enabled = false                   # 只读管理台：看它今天干了什么
+host = "127.0.0.1"                # 放公网请改 0.0.0.0，并且一定配 token
+port = 8787
+token = ""                        # 非空时，页面和接口都要带 ?t=你的token
+screens_dir = "data/screens"

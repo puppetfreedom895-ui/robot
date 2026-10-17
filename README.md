@@ -34,13 +34,14 @@
 
 | 层 | 状态 | 说明 |
 | --- | --- | --- |
-| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，147 个测试 |
+| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，159 个测试 |
 | QQ 层 `robot/adapters/onebot` | ✅ 可用 | OneBot v11 客户端/反连，触发规则，分段回复 |
 | 对话记忆 `robot/core/memory` | ✅ 可用 | 短期 + 摘要 + 长期事实 |
 | 生命内核 `robot/life` | ✅ 基础版 | 状态、心跳、日记、目标、L3 护栏、DSH 执行器 |
 | QQ 出入口接线 | ✅ 完成 | 主动私聊 + 对话联动状态 + `robot live` 常驻 |
-| 管理网页 | 🚧 未开始 | 只读看板 + 干预 |
-| 部署脚本 | 🚧 未开始 | systemd / docker / Tailscale |
+| 管理台 `robot/web` | ✅ 完成 | 只读看板：状态、时间线、日记、截图 |
+| 部署脚本 `deploy/` | ✅ 完成 | systemd、Docker、一键安装 |
+| 部署上线 | 🚧 待你给 SSH | 装到你的云服务器并接上手机 |
 
 ## 手机层
 
@@ -191,11 +192,94 @@ L3 不靠提示词约束——提示词在长对话里迟早被绕过——而�
 
 | 项目 | 频次 | 单次 | 日消耗 |
 | --- | --- | --- | --- |
-| 心跳 | 144 次/天 | ~1.5k | ~216k |
+| 心跳 | 144 次/天 | ~320 | ~46k |
 | 操作手机 | 10–20 次 | ~30k | ~300–600k |
 | 聊天 | ~50 条 | ~2k | ~100k |
 
-约 **0.6–0.9M token/天**，折合 15–45 元/月。三条压缩手段：心跳极简（便宜模型、关思考、只给状态摘要）、平时休眠做事才升级、夜间降频（顺带半价）。
+约 **0.45–0.75M token/天**，折合 15–40 元/月。三条压缩手段：心跳极简（便宜模型、关思考、只给状态摘要）、平时休眠做事才升级、夜间降频（顺带半价）。
+
+## 管理台
+
+只读，没有任何写操作：
+
+```
+http://127.0.0.1:8787/?t=你的token
+```
+
+四样东西：它此刻的状态（精力/无聊/心情/在琢磨什么）、今天做过什么、日记、手机截图。
+
+接口：`/api/snapshot`、`/api/shots`、`/api/shot/<名字>`、`/healthz`。
+
+默认只绑 `127.0.0.1`。**放公网必须配 `[web] token`**，否则谁打开都能看到它的生活。
+
+## 部署
+
+目标：agent 跑在云服务器，手机在家里，两者用 Tailscale 组网。
+
+### 1. 服务器准备
+
+```bash
+sudo apt update && sudo apt install -y python3.12 python3.12-venv git adb
+curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up
+```
+
+### 2. 拉代码并安装
+
+```bash
+sudo git clone https://github.com/puppetfreedom895-ui/robot /opt/robot
+sudo /opt/robot/deploy/install.sh
+```
+
+脚本会建虚拟环境、装依赖、生成 `config.toml`、装好 systemd 服务。
+
+### 3. 改配置
+
+```toml
+[llm]
+api_key = "sk-..."
+
+[life]
+enabled = true
+owner = 你的QQ号
+dsh_command = "dsh --profile headless"
+
+[web]
+enabled = true
+token = "一串随机字符"
+```
+
+### 4. 手机接进来
+
+1. 手机装 Tailscale，用同一个账号登录。
+2. 开发者选项 → 无线调试 → 打开，记下端口。
+3. 服务器上 `adb connect 100.x.x.x:5555`（Tailscale 里手机的地址）。
+4. 把 `PHONE_SERIAL=100.x.x.x:5555` 写进 `/opt/robot/.env`。
+
+### 5. 启动
+
+```bash
+sudo systemctl start robot
+sudo journalctl -u robot -f
+```
+
+### 6. 看管理台
+
+```bash
+ssh -L 8787:127.0.0.1:8787 你的服务器
+# 然后浏览器打开 http://127.0.0.1:8787/?t=你的token
+```
+
+不要把 8787 直接暴露公网，要看就 SSH 转发。
+
+### Docker 方式
+
+```bash
+cd deploy
+cp ../config.example.toml ../config.toml   # 把 [onebot] url 改成 ws://napcat:3001
+docker compose up -d
+```
+
+NapCat 的 WebUI 在 `http://服务器:6099`，扫码登录后加一个 WebSocket 服务器（端口 3001）。
 
 ## 风险与边界
 
@@ -210,7 +294,7 @@ L3 不靠提示词约束——提示词在长对话里迟早被绕过——而�
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-pytest              # 147 个测试，全部离线
+pytest              # 159 个测试，全部离线
 ruff check .
 ```
 
@@ -220,13 +304,17 @@ ruff check .
 robot/
 ├── robot/
 │   ├── phone/           # 设备抽象、uiautomator2 实现、界面树压缩
-│   ├── mcp_phone/       # MCP stdio 服务端
+│   ├── mcp_phone/       # MCP stdio 服务端（挂给 DSH 用）
+│   ├── life/            # 生命内核：状态、心跳、护栏、执行器、QQ 通知
+│   ├── web/             # 只读管理台
 │   ├── adapters/onebot/ # QQ 接入
 │   ├── core/            # 事件、总线、上下文、人设、记忆
 │   ├── llm/             # OpenAI 兼容 Provider
 │   ├── store/           # SQLite
 │   └── plugins/         # 插件机制与内置插件
-├── tests/
+├── deploy/              # systemd、Docker、一键安装
+├── scripts/             # 演示与冒烟用配置
+├── tests/               # 全部离线可跑
 ├── config.example.toml
 └── persona.md
 ```
