@@ -176,6 +176,30 @@ async def _doctor(settings: Settings, online: bool) -> int:
     else:
         print(f"  ✓ 监听模式：ws://{onebot.host}:{onebot.port}{onebot.path}")
 
+    life = settings.life
+    if life.enabled:
+        passed &= _check(
+            bool(life.owner),
+            "生命内核",
+            f"心跳 {life.heartbeat_minutes:g} 分钟，主人 {life.owner}"
+            if life.owner
+            else "已启用但没配 owner，它想主动说话时发不出去",
+        )
+    else:
+        print("  · 生命内核：未启用（只当聊天机器人）")
+
+    web = settings.web
+    if web.enabled:
+        exposed = web.host not in ("127.0.0.1", "localhost") and not web.token
+        passed &= _check(
+            not exposed,
+            "管理台",
+            f"http://{web.host}:{web.port}"
+            + ("，绑了外网却没配 token，任何人都能看到它！" if exposed else ""),
+        )
+    else:
+        print("  · 管理台：未启用")
+
     if online:
         from robot.llm.base import ChatMessage
 

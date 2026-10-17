@@ -34,7 +34,7 @@
 
 | 层 | 状态 | 说明 |
 | --- | --- | --- |
-| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，159 个测试 |
+| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，162 个测试 |
 | QQ 层 `robot/adapters/onebot` | ✅ 可用 | OneBot v11 客户端/反连，触发规则，分段回复 |
 | 对话记忆 `robot/core/memory` | ✅ 可用 | 短期 + 摘要 + 长期事实 |
 | 生命内核 `robot/life` | ✅ 基础版 | 状态、心跳、日记、目标、L3 护栏、DSH 执行器 |
@@ -294,7 +294,7 @@ NapCat 的 WebUI 在 `http://服务器:6099`，扫码登录后加一个 WebSocke
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-pytest              # 159 个测试，全部离线
+pytest              # 162 个测试，全部离线
 ruff check .
 ```
 

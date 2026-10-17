@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import uuid
 from collections.abc import Awaitable, Callable
@@ -38,6 +39,8 @@ class _Connection:
     def __init__(self, socket: Any) -> None:
         self.socket = socket
         self.pending: dict[str, asyncio.Future[Any]] = {}
+        self.queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self.worker: asyncio.Task[None] | None = None
         self.closed = False
 
     async def send_json(self, payload: dict[str, Any]) -> None:
@@ -153,7 +156,8 @@ class OneBotAdapter:
         @param segments: 消息段。
         @raises OneBotError: 没有可用连接或发送失败。
         """
-        payload = [segment.data | {"type": segment.type} for segment in segments]
+        # OneBot v11 要求 {"type": ..., "data": {...}}，不能把 data 摊平到顶层
+        payload = [{"type": segment.type, "data": dict(segment.data)} for segment in segments]
         if event.is_group:
             action = "send_group_msg"
             params: dict[str, Any] = {"group_id": event.chat_id, "message": payload}
@@ -266,12 +270,20 @@ class OneBotAdapter:
     async def _serve_connection(self, socket: Any) -> None:
         connection = _Connection(socket)
         self._connections.append(connection)
+        connection.worker = asyncio.create_task(
+            self._dispatch_loop(connection), name="onebot-dispatch"
+        )
         try:
             await self._drain(connection)
         finally:
             await self._drop(connection, reason="连接结束")
 
     async def _drain(self, connection: _Connection) -> None:
+        """只读帧：先兑现动作响应，其余丢进队列。
+
+        这里绝不能 await 事件处理——处理过程中要发消息，而响应帧只能由本循环读取，
+        在这里 await 会自己等自己，把整条连接卡死。
+        """
         async for raw in connection.socket:
             try:
                 payload = json.loads(raw)
@@ -280,12 +292,22 @@ class OneBotAdapter:
                 continue
             if not isinstance(payload, dict):
                 continue
-            await self._handle_payload(connection, payload)
+            if connection.resolve_echo(payload):
+                continue
+            connection.queue.put_nowait(payload)
 
-    async def _handle_payload(self, connection: _Connection, payload: dict[str, Any]) -> None:
-        if connection.resolve_echo(payload):
-            return
+    async def _dispatch_loop(self, connection: _Connection) -> None:
+        """顺序消费事件，保证同一个连接上的消息按到达顺序处理。"""
+        while True:
+            payload = await connection.queue.get()
+            try:
+                await self._handle_payload(payload)
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # 单条事件处理失败不该打断后续消息
+                logger.exception("处理事件失败")
 
+    async def _handle_payload(self, payload: dict[str, Any]) -> None:
         post_type = payload.get("post_type")
         if post_type == "meta_event":
             self._handle_meta(payload)
@@ -317,6 +339,13 @@ class OneBotAdapter:
         if connection.closed:
             return
         connection.closed = True
+
+        if connection.worker is not None:
+            connection.worker.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await connection.worker
+            connection.worker = None
+
         for future in connection.pending.values():
             if not future.done():
                 future.set_exception(OneBotError(f"连接断开：{reason}"))

@@ -89,7 +89,7 @@ async def test_send_group_message_builds_action_payload() -> None:
     frame = socket.frames[0]
     assert frame["action"] == "send_group_msg"
     assert frame["params"]["group_id"] == 888
-    assert frame["params"]["message"] == [{"text": "在的", "type": "text"}]
+    assert frame["params"]["message"] == [{"type": "text", "data": {"text": "在的"}}]
 
     connection.resolve_echo(
         {"status": "ok", "retcode": 0, "data": {"message_id": 1}, "echo": frame["echo"]}
@@ -129,8 +129,6 @@ async def test_message_event_is_forwarded() -> None:
         received.append(event)
 
     adapter = OneBotAdapter(OneBotSettings(), on_event)
-    socket = FakeSocket()
-    connection = _Connection(socket)
 
     payload = {
         "post_type": "message",
@@ -141,7 +139,7 @@ async def test_message_event_is_forwarded() -> None:
         "message": [{"type": "text", "data": {"text": "在吗"}}],
         "sender": {"nickname": "小明"},
     }
-    await adapter._handle_payload(connection, payload)
+    await adapter._handle_payload(payload)
     assert len(received) == 1
     assert received[0].text == "在吗"
     assert adapter.self_id == 999
@@ -154,14 +152,13 @@ async def test_message_sent_echo_is_ignored() -> None:
         received.append(event)
 
     adapter = OneBotAdapter(OneBotSettings(), on_event)
-    await adapter._handle_payload(_Connection(FakeSocket()), {"post_type": "message_sent"})
+    await adapter._handle_payload({"post_type": "message_sent"})
     assert received == []
 
 
 async def test_meta_event_records_self_id() -> None:
     adapter = make_adapter()
     await adapter._handle_payload(
-        _Connection(FakeSocket()),
         {"post_type": "meta_event", "meta_event_type": "lifecycle", "self_id": 4242},
     )
     assert adapter.self_id == 4242
