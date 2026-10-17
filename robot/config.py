@@ -166,8 +166,49 @@ def _apply_env(settings: Settings) -> Settings:
     return settings
 
 
+def load_dotenv(path: Path) -> int:
+    """把 .env 里的键值读进进程环境变量，已存在的键不覆盖。
+
+    会有副作用：直接写 os.environ。这是刻意的——子进程（比如 DSH 拉起的手机
+    MCP 服务）需要继承 PHONE_SERIAL 这类配置。
+
+    @param path: .env 文件路径。
+    @returns: 实际载入的条数。
+    """
+    if not path.is_file():
+        return 0
+
+    loaded = 0
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+
+        key, separator, value = line.partition("=")
+        key = key.strip()
+        if not separator or not key or key in os.environ:
+            continue
+
+        os.environ[key] = _unquote(value.strip())
+        loaded += 1
+    return loaded
+
+
+def _unquote(value: str) -> str:
+    """去掉一对包裹的引号。
+
+    @param value: 原始值。
+    @returns: 去引号后的值。
+    """
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        return value[1:-1]
+    return value
+
+
 def load_settings(config_path: str | Path = "config.toml") -> Settings:
-    """读取配置文件并合并环境变量。
+    """读取配置文件，载入同目录的 .env，再用环境变量覆盖。
 
     @param config_path: TOML 配置文件路径；不存在时抛出 FileNotFoundError，避免静默用默认值启动。
     @returns: 完成校验的配置对象，base_dir 指向配置文件所在目录。
@@ -179,6 +220,8 @@ def load_settings(config_path: str | Path = "config.toml") -> Settings:
         raise FileNotFoundError(
             f"找不到配置文件 {path}。先复制 config.example.toml 为 config.toml 再改。"
         )
+
+    load_dotenv(path.parent / ".env")
 
     with path.open("rb") as handle:
         raw = tomllib.load(handle)

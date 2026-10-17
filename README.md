@@ -30,11 +30,42 @@
             一部安卓手机（常亮、插电）
 ```
 
+## 快速开始
+
+```powershell
+git clone https://github.com/puppetfreedom895-ui/robot
+cd robot
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+
+copy config.example.toml config.toml     # Linux/macOS 用 cp
+```
+
+填模型密钥，三种方式任选（优先级从低到高）：
+
+1. 写进 `config.toml` 的 `[llm] api_key`
+2. 写进同目录的 `.env`（会**自动加载**）：`ROBOT_API_KEY=sk-...`
+3. 直接在 shell 里设：`$env:ROBOT_API_KEY="sk-..."`
+
+先确认模型通：
+
+```powershell
+python -m robot chat
+```
+
+再让它常驻：把 `config.toml` 里的 `[life] enabled = true`、`owner = 你的QQ号` 打开，然后
+
+```powershell
+python -m robot doctor    # 体检：密钥、人设、NapCat、生命内核、管理台、手机
+python -m robot live      # 常驻
+```
+
 ## 当前进度
 
 | 层 | 状态 | 说明 |
 | --- | --- | --- |
-| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，162 个测试 |
+| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，194 个测试 |
 | QQ 层 `robot/adapters/onebot` | ✅ 可用 | OneBot v11 客户端/反连，触发规则，分段回复 |
 | 对话记忆 `robot/core/memory` | ✅ 可用 | 短期 + 摘要 + 长期事实 |
 | 生命内核 `robot/life` | ✅ 基础版 | 状态、心跳、日记、目标、L3 护栏、DSH 执行器 |
@@ -219,11 +250,22 @@ http://127.0.0.1:8787/?t=你的token
 ### 1. 服务器准备
 
 ```bash
-sudo apt update && sudo apt install -y python3.12 python3.12-venv git adb
+sudo apt update && sudo apt install -y python3.12 python3.12-venv git adb npm
 curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up
 ```
 
-### 2. 拉代码并安装
+### 2. 装 DSH 大脑
+
+机器人自己只做决定，真正操作手机的是 DSH。服务器上装 npm 版 CLI（不是桌面版封装）：
+
+```bash
+sudo npm i -g @deepseek-ai/dsh
+dsh --version          # 能打印版本就对了
+```
+
+Node 要 22 以上；系统自带的太旧就先装 NodeSource 或 nvm。
+
+### 3. 拉代码并安装
 
 ```bash
 sudo git clone https://github.com/puppetfreedom895-ui/robot /opt/robot
@@ -232,7 +274,7 @@ sudo /opt/robot/deploy/install.sh
 
 脚本会建虚拟环境、装依赖、生成 `config.toml`、装好 systemd 服务。
 
-### 3. 改配置
+### 4. 改配置
 
 ```toml
 [llm]
@@ -248,21 +290,21 @@ enabled = true
 token = "一串随机字符"
 ```
 
-### 4. 手机接进来
+### 5. 手机接进来
 
 1. 手机装 Tailscale，用同一个账号登录。
 2. 开发者选项 → 无线调试 → 打开，记下端口。
 3. 服务器上 `adb connect 100.x.x.x:5555`（Tailscale 里手机的地址）。
 4. 把 `PHONE_SERIAL=100.x.x.x:5555` 写进 `/opt/robot/.env`。
 
-### 5. 启动
+### 6. 启动
 
 ```bash
 sudo systemctl start robot
 sudo journalctl -u robot -f
 ```
 
-### 6. 看管理台
+### 7. 看管理台
 
 ```bash
 ssh -L 8787:127.0.0.1:8787 你的服务器
@@ -294,7 +336,7 @@ NapCat 的 WebUI 在 `http://服务器:6099`，扫码登录后加一个 WebSocke
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-pytest              # 162 个测试，全部离线
+pytest              # 194 个测试，全部离线
 ruff check .
 ```
 

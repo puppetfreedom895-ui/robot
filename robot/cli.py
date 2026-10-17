@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
+import shutil
 import socket
 import sys
 from urllib.parse import urlparse
@@ -199,6 +201,17 @@ async def _doctor(settings: Settings, online: bool) -> int:
         )
     else:
         print("  · 管理台：未启用")
+
+    serial = os.environ.get("PHONE_SERIAL", "").strip()
+    if serial:
+        adb = shutil.which("adb")
+        passed &= _check(
+            bool(adb),
+            "手机",
+            f"序列 {serial}" + ("" if adb else "，但 PATH 里没有 adb，连不上"),
+        )
+    else:
+        print("  · 手机：未设 PHONE_SERIAL，不会操作手机")
 
     if online:
         from robot.llm.base import ChatMessage
