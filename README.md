@@ -34,10 +34,11 @@
 
 | 层 | 状态 | 说明 |
 | --- | --- | --- |
-| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，99 个测试 |
+| 手机层 `robot/mcp_phone` | ✅ 完成 | 10 个 MCP 工具，界面树压缩，增量回执，135 个测试 |
 | QQ 层 `robot/adapters/onebot` | ✅ 可用 | OneBot v11 客户端/反连，触发规则，分段回复 |
 | 对话记忆 `robot/core/memory` | ✅ 可用 | 短期 + 摘要 + 长期事实 |
-| 生命内核 `robot/life` | 🚧 下一步 | 心跳、自我状态、日记、目标、护栏 |
+| 生命内核 `robot/life` | ✅ 基础版 | 状态、心跳、日记、目标、L3 护栏、DSH 执行器 |
+| QQ 出入口接线 | 🚧 下一步 | 把心跳和聊天接到同一个小号上 |
 | 管理网页 | 🚧 未开始 | 只读看板 + 干预 |
 | 部署脚本 | 🚧 未开始 | systemd / docker / Tailscale |
 
@@ -107,6 +108,39 @@ $env:PHONE_FAKE="1"; python -m robot.mcp_phone   # 用假设备，验证协议
 
 挂上之后模型会看到 `mcp__phone__screen`、`mcp__phone__tap` 等工具。
 
+## 生命内核
+
+没人理它的时候，它自己也在跑：
+
+```
+20:00  💤 什么也没干
+22:00  🎬 做事：刷会儿手机
+         └ 我打开 B 站，刷了会儿视频
+01:00  😴 睡觉
+```
+
+五个部件各管一件事：
+
+| 部件 | 文件 | 干什么 |
+| --- | --- | --- |
+| 状态 | `life/state.py` | 精力、无聊、心情、最近琢磨的事。做事掉精力，闲着涨无聊 |
+| 心跳 | `life/loop.py` | 每 N 分钟醒一次；夜里和太累时**直接睡，不调模型** |
+| 决策 | `life/brain.py` | 一次普通对话，约 300 token，只回一个 JSON |
+| 护栏 | `life/policy.py` | L3 意图在执行前拒绝，并主动告诉你 |
+| 执行 | `life/runner.py` | 真决定做事时才启动 DSH，带着手机工具去点 |
+
+自己跑一遍（零成本，不碰手机）：
+
+```powershell
+python -m robot.life --ticks 12 --step 20 --start 20:00 --dsh "python scripts/fake_dsh.py"
+```
+
+- `--model`：换成真实模型做决定（需 `config.toml` 里的密钥）
+- `--dsh "dsh --profile headless"`：换成真的 DSH 去操作手机
+- `--budget 20000`：当天 token 额度，超了就只待着
+
+实测每次心跳约 320 token，一天 144 次 ≈ 4.6 万 token。
+
 ## QQ 层
 
 OneBot v11，对接 [NapCat](https://github.com/NapNeko/NapCatQQ)。用专用小号，别用主号。
@@ -154,7 +188,7 @@ L3 不靠提示词约束——提示词在长对话里迟早被绕过——而�
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-pytest              # 99 个测试，全部离线
+pytest              # 135 个测试，全部离线
 ruff check .
 ```
 

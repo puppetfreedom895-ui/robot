@@ -23,6 +23,7 @@ phone = ["uiautomator2>=3.0"]
 [project.scripts]
 robot = "robot.cli:main"
 phone-mcp = "robot.mcp_phone.server:main"
+life = "robot.life.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["robot"]
